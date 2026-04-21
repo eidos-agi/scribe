@@ -1,0 +1,58 @@
+# .hone/hone.yaml — per-target contract for scribe.
+#
+# Mirrors visionlog's GUARD-001..003 and ADR-001 into the per-target
+# format hone's ceremony.build() reads. visionlog is the static source
+# of truth (via mcp__visionlog__guardrail_list); this file is how hone
+# ticks surface those contracts during Diagnose+Change.
+#
+# If visionlog's guardrails change, regenerate this file via:
+#   mcp__visionlog__guardrail_list(project_id=<scribe>) + rewrite.
+
+version: 0
+target: scribe
+visionlog_project_id: 7beefb4e-b282-405a-8185-7d85432b910c
+
+# ----------------------------------------------------------------------
+# measure: how to compute a single signal for this target
+# ----------------------------------------------------------------------
+# For scribe, the healthiest signal is the count of non-hone tool
+# callers in updates.jsonl — it proves scribe is actually consulted
+# by the team it documents, not just by its build session.
+measure:
+  cmd: 'uv run python -c "import json, pathlib; updates = pathlib.Path(\"/Users/dshanklinbv/repos-eidos-agi/scribe/.scribe/updates.jsonl\"); authors = set(); total = 0\nfor line in updates.read_text().splitlines():\n    if not line.strip(): continue\n    total += 1\n    d = json.loads(line)\n    a = d.get(\"author_tool\")\n    if a and a != \"cli\": authors.add(a)\nprint(json.dumps({\"distinct_non_cli_callers\": len(authors), \"total_updates\": total}))"'
+  parse: distinct_non_cli_callers
+  direction: up  # more tools calling scribe is better
+
+# ----------------------------------------------------------------------
+# improve: how the Diagnose+Change phase should act on this target
+# ----------------------------------------------------------------------
+improve:
+  default: diagnose-and-edit
+
+# ----------------------------------------------------------------------
+# guardrails: mirrored from visionlog GUARD-001..003 (authoritative)
+# ----------------------------------------------------------------------
+# Any change to scribe's behavior MUST honor these. Violating a
+# guardrail should produce a `blocked` turn, not ship.
+guardrails:
+  - GUARD-001 — No LLM synthesis inside scribe. Synthesis is the caller's job (ADR-001). If you find yourself adding an LLM call inside scribe, stop — you are doing the caller's job badly without their context.
+  - GUARD-002 — One scribe per repo, never cross-repo. Scribe does not aggregate, search, or list across repos. Cross-repo is omni's job. A cross-repo tool inside scribe makes scribe a worse omni.
+  - GUARD-003 — Every update must be logged, even when card.md is not written. updates.jsonl is the trajectory. Log-only updates prove scribe was consulted. If an update path silently drops the log, the trajectory is broken.
+  - Keep scribe small. ~150 lines of code; three-now-four MCP tools. Every added tool must justify itself with concrete caller demand, not speculation.
+  - Do not break scribe_init/read/update signatures. External callers (hone, anything else wired in) depend on them.
+
+# ----------------------------------------------------------------------
+# cadence
+# ----------------------------------------------------------------------
+cadence:
+  interval: 15m  # when /loop fires hone on this target
+
+# ----------------------------------------------------------------------
+# instruments: which project-bound MCPs are bound for this target
+# ----------------------------------------------------------------------
+instruments:
+  visionlog: true    # bound this session — project_id above
+  lighthouse: true   # bound via lighthouse_set_north_star (ns_c5a90a5cc690)
+  research_md: false
+  ike: false
+  stepproof: false
