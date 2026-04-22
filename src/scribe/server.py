@@ -89,6 +89,40 @@ def scribe_review(
 
 
 @mcp.tool()
+def scribe_suggest(
+    repo: str,
+    change: str,
+    tracked: list[str] | None = None,
+) -> dict[str, Any]:
+    """Rank which tracked docs need updates for a given code change.
+
+    v0.1.3 (ADR-004 final feature). Scribe delegates the ranking to
+    `claude -p` via subprocess — no Anthropic SDK import, no direct
+    API calls. If the `claude` binary isn't on PATH or the call times
+    out, returns an empty-suggestions result with a clear status
+    message — never raises.
+
+    Args:
+        repo: path or slug.
+        change: free-text description of the code change (e.g. "added
+            user_preferences table" or a commit message).
+        tracked: optional doc paths. Defaults to the repo's
+            .scribe/scribe.yaml tracked list, then to hardcoded safe
+            defaults.
+
+    Returns:
+        {
+          "repo": ..., "tracked": [...],
+          "status": "ok" | "claude-unavailable" | "timeout" | "parse-error",
+          "suggestions": [{path, rank, reason}, ...],
+        }
+        (Plus `raw_output` + `message` when status is not "ok".)
+    """
+    _reload()
+    return card.suggest(repo, change, tracked=tracked)
+
+
+@mcp.tool()
 def scribe_update(
     repo: str,
     change_summary: str,

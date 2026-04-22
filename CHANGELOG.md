@@ -3,6 +3,25 @@
 All notable changes to scribe are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] — 2026-04-22 — ADR-004 complete
+
+### Added
+
+- `scribe_suggest(repo, change, tracked?)` — ranked-doc recommender. Given a code-change description, returns which tracked docs need updates, with reasoning. Delegates to `claude -p` via subprocess (no Anthropic SDK import — subscription tooling only, per ADR-004). Prompt template lives in `card.py::_SUGGEST_PROMPT`; output is balanced-JSON-extracted so prose wrappers and ```fence blocks survive. Filters out any suggested path not in the tracked list (no hallucinated docs).
+- Graceful degradation — never raises. Returns status ∈ `{ok, claude-unavailable, timeout, parse-error}` with an explanatory `message` field for the non-ok cases.
+- 3 new tests using `monkeypatch.setattr(subprocess, "run", ...)` so the suite runs without the `claude` binary: claude-unavailable path, canned JSON parse, JSON extraction from prose wrapper.
+
+### ADR-004 status: 4 of 4 core features shipped
+
+- v0.1.0 — path-generic `scribe_update`
+- v0.1.1 — `scribe_review` coherence pass
+- v0.1.2 — `.scribe/scribe.yaml` config
+- **v0.1.3 — `scribe_suggest` — this release**
+
+Scribe is now a real technical writer: path-generic writes + review + config + delegation. All synthesis happens in a `claude -p` subprocess or in the calling agent's own session — scribe itself stays data-layer-clean (still zero LLM SDK imports; `test_no_llm_sdk_imports_in_source` still passes).
+
+[0.1.3]: https://github.com/eidos-agi/scribe/releases/tag/v0.1.3
+
 ## [0.1.2] — 2026-04-22
 
 ### Added

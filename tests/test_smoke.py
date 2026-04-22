@@ -298,6 +298,81 @@ def test_review_unknown_when_not_committed(tmp_path):
 
 
 # ---------------------------------------------------------------------
+# v0.1.3 — scribe_suggest (ADR-004 final feature, claude -p delegation)
+# ---------------------------------------------------------------------
+
+
+def test_suggest_returns_claude_unavailable_when_binary_missing(tmp_path, monkeypatch):
+    """When `claude` isn't on PATH, scribe_suggest returns status=claude-unavailable
+    with empty suggestions — never raises."""
+    from scribe import card
+    import subprocess as sp
+
+    def _raise_fnf(*a, **kw):
+        raise FileNotFoundError("claude")
+    monkeypatch.setattr(sp, "run", _raise_fnf)
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+    r = card.suggest(repo, change="added user_preferences table")
+
+    assert r["status"] == "claude-unavailable"
+    assert r["suggestions"] == []
+    assert "claude" in r["message"].lower()
+
+
+def test_suggest_parses_claude_json_output(tmp_path, monkeypatch):
+    """When claude -p returns a valid JSON block, scribe parses it and
+    filters to paths in the tracked list."""
+    from scribe import card
+    import subprocess as sp
+
+    canned = '{"suggestions": [' \
+        '{"path": "README.md", "rank": 1, "reason": "data layer section claims 2 tables, now 3"},' \
+        '{"path": "HALLUCINATED.md", "rank": 2, "reason": "filtered out — not tracked"}' \
+    ']}'
+
+    def _fake_run(*a, **kw):
+        return sp.CompletedProcess(args=a, returncode=0, stdout=canned, stderr="")
+    monkeypatch.setattr(sp, "run", _fake_run)
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+    r = card.suggest(repo, change="added user_preferences table",
+                     tracked=["README.md", ".scribe/card.md"])
+
+    assert r["status"] == "ok"
+    assert len(r["suggestions"]) == 1  # HALLUCINATED.md filtered out
+    assert r["suggestions"][0]["path"] == "README.md"
+    assert r["suggestions"][0]["rank"] == 1
+
+
+def test_suggest_extracts_json_from_prose(tmp_path, monkeypatch):
+    """claude -p sometimes wraps its reply in prose. scribe finds the first
+    balanced JSON object."""
+    from scribe import card
+    import subprocess as sp
+
+    prose_reply = (
+        "Sure! Here are my suggestions:\n"
+        "\n"
+        '```json\n{"suggestions": [{"path": "README.md", "rank": 1, "reason": "..."}]}\n```\n'
+        "\nLet me know if you have questions."
+    )
+
+    def _fake_run(*a, **kw):
+        return sp.CompletedProcess(args=a, returncode=0, stdout=prose_reply, stderr="")
+    monkeypatch.setattr(sp, "run", _fake_run)
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+    r = card.suggest(repo, change="x", tracked=["README.md"])
+
+    assert r["status"] == "ok"
+    assert r["suggestions"][0]["path"] == "README.md"
+
+
+# ---------------------------------------------------------------------
 # ADR-001 regression — no LLM synthesis inside scribe
 # ---------------------------------------------------------------------
 

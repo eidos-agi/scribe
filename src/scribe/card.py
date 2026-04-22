@@ -441,6 +441,195 @@ def review(repo: str, tracked: list[str] | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------
+# v0.1.3+ — scribe_suggest (ADR-004: ranked-doc recommendations)
+# ---------------------------------------------------------------------
+
+_SUGGEST_PROMPT = """\
+Given a code change and a repo's tracked documentation, rank which docs
+need updates. Be conservative — only include docs that MUST change for
+the repo's self-description to remain truthful after this change.
+
+<code_change>
+{change}
+</code_change>
+
+<tracked_docs>
+{docs_block}
+</tracked_docs>
+
+Return ONLY a JSON object. No prose, no code fences, nothing else:
+
+{{"suggestions": [{{"path": "...", "rank": 1, "reason": "one sentence"}}]}}
+
+Only include paths from the tracked_docs block. Omit obviously unrelated docs.
+If no docs need to change, return {{"suggestions": []}}.
+"""
+
+_SUGGEST_TIMEOUT_S = 45
+_SUGGEST_DOC_HEAD_CHARS = 600
+
+
+def _build_suggest_prompt(change: str, tracked: list[str], repo_root: Path) -> str:
+    """Assemble the prompt block showing tracked docs' head content."""
+    lines: list[str] = []
+    for path in tracked:
+        full = repo_root / path
+        snippet = ""
+        if full.exists() and full.is_file():
+            try:
+                snippet = full.read_text(encoding="utf-8")[:_SUGGEST_DOC_HEAD_CHARS]
+            except Exception:
+                snippet = "(unreadable)"
+        else:
+            snippet = "(file does not exist yet)"
+        lines.append(f"  {path}:")
+        for snippet_line in snippet.splitlines()[:15]:
+            lines.append(f"    {snippet_line}")
+        lines.append("")
+    return _SUGGEST_PROMPT.format(change=change.strip(), docs_block="\n".join(lines).rstrip())
+
+
+def _extract_json_object(text: str) -> dict | None:
+    """Pull the first top-level JSON object out of arbitrary text.
+
+    claude -p occasionally wraps its reply in prose despite instructions,
+    so we scan for the first '{' and match to its paired '}'. Returns
+    None if no valid JSON found.
+    """
+    text = text.strip()
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        c = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif c == "\\":
+                escape = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = text[start:i + 1]
+                try:
+                    return json.loads(candidate)
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
+def suggest(
+    repo: str,
+    change: str,
+    tracked: list[str] | None = None,
+) -> dict:
+    """Rank which tracked docs need updates for a given code change.
+
+    Delegates the ranking to `claude -p` — scribe does not import an LLM
+    SDK (ADR-004: subscription-tooling-only). If the `claude` binary is
+    unavailable or times out, returns an empty suggestions list with a
+    status message; never raises.
+
+    Args:
+        repo: path or slug.
+        change: free-text description of the code change.
+        tracked: optional doc paths. When omitted, reads scribe.yaml, then
+            falls back to the built-in defaults.
+
+    Returns:
+      {
+        "repo": str,
+        "tracked": list[str],
+        "status": "ok" | "claude-unavailable" | "timeout" | "parse-error",
+        "suggestions": [{path, rank, reason}, ...],
+        "raw_output": str (only when status != ok),
+      }
+    """
+    repo_root = resolve_repo(repo)
+    if tracked is None:
+        cfg = load_config(repo)
+        cfg_tracked = cfg.get("tracked") if isinstance(cfg, dict) else None
+        if isinstance(cfg_tracked, list) and cfg_tracked:
+            tracked = [str(p) for p in cfg_tracked]
+        else:
+            tracked = list(_DEFAULT_TRACKED_DOCS)
+
+    prompt = _build_suggest_prompt(change, tracked, repo_root)
+
+    try:
+        proc = subprocess.run(
+            ["claude", "-p"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=_SUGGEST_TIMEOUT_S,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {
+            "repo": repo,
+            "tracked": tracked,
+            "status": "claude-unavailable",
+            "suggestions": [],
+            "raw_output": "",
+            "message": "`claude` binary not on PATH. Install Claude Code or run scribe with a pre-ranked tracked list.",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "repo": repo,
+            "tracked": tracked,
+            "status": "timeout",
+            "suggestions": [],
+            "raw_output": "",
+            "message": f"claude -p timed out after {_SUGGEST_TIMEOUT_S}s",
+        }
+
+    output = proc.stdout or ""
+    parsed = _extract_json_object(output)
+    if parsed is None or not isinstance(parsed.get("suggestions"), list):
+        return {
+            "repo": repo,
+            "tracked": tracked,
+            "status": "parse-error",
+            "suggestions": [],
+            "raw_output": output[:2000],
+            "message": "Could not extract a {suggestions: [...]} object from claude -p output.",
+        }
+
+    # Filter to declared tracked paths only (no hallucinated docs).
+    tracked_set = set(tracked)
+    clean = []
+    for entry in parsed["suggestions"]:
+        if not isinstance(entry, dict):
+            continue
+        path = entry.get("path")
+        if path in tracked_set:
+            clean.append({
+                "path": path,
+                "rank": entry.get("rank"),
+                "reason": entry.get("reason", ""),
+            })
+
+    return {
+        "repo": repo,
+        "tracked": tracked,
+        "status": "ok",
+        "suggestions": clean,
+    }
+
+
+# ---------------------------------------------------------------------
 # REMOVED: read_team() + team.yaml
 # ---------------------------------------------------------------------
 # Earlier versions shipped a static team.yaml roster and a read_team()

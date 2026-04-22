@@ -2,6 +2,10 @@
 
 Accumulated learnings, newest at top.
 
+## 2026-04-22T065224Z — improved
+Shipped scribe v0.1.2 — `.scribe/scribe.yaml` config. Schema v0: `{ version: 0, tracked: list[str] }`. scribe_init writes the default yaml (card.md, README.md, CHANGELOG.md) when missing. card.load_config(repo) fails open. scribe_review now prefers the repo's scribe.yaml tracked list over the hardcoded defaults. Pyyaml re-added to deps (it was removed earlier when team.yaml was deleted). 2 new tests; 16/16 pass. Bumped to 0.1.2, tag pushed. ADR-004 scope now 3 of 4 core features delivered; last remaining: scribe_suggest(repo, change) with claude -p delegation.
+
+Full turn: [`turns/2026-04-22T065224Z.md`](turns/2026-04-22T065224Z.md)
 ## 2026-04-22T063706Z — improved
 Shipped scribe v0.1.1 — the second of three ADR-004 sub-features. Added `scribe_review(repo, tracked?)` as an MCP tool + `card.review()` function. Implementation walks git log per tracked doc, compares ISO timestamps against the newest non-doc commit, classifies each as stale/fresh/unknown. Fails open on missing git or uncommitted paths. Default tracked list: `.scribe/card.md`, `README.md`, `CHANGELOG.md`. Three new tests (stale flagging, fresh passes, uncommitted path = unknown). 14/14 tests pass. CHANGELOG entry + v0.1.1 tag created + pushed. ADR-004 scope now 2/3 delivered; remaining follow-ups: scribe_suggest (claude -p delegation) and .scribe/scribe.yaml config.
 
