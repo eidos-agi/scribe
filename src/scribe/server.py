@@ -58,6 +58,37 @@ def scribe_read(repo: str, recent: int = 10) -> dict[str, Any]:
 
 
 @mcp.tool()
+def scribe_review(
+    repo: str,
+    tracked: list[str] | None = None,
+) -> dict[str, Any]:
+    """Coherence pass — flag tracked docs that look stale relative to
+    recent code commits.
+
+    v0.1.0 heuristic (ADR-004): a doc is `stale` if its most recent
+    git-commit timestamp predates the most recent non-doc commit.
+    `fresh` when the doc moved more recently than any code change,
+    `unknown` when git has no record.
+
+    Scribe makes no claim about WHAT each stale doc should say —
+    `scribe_suggest` (future tick) provides the ranked-doc guidance.
+    Review just surfaces the gap.
+
+    Args:
+        repo: path or slug.
+        tracked: optional list of doc paths (repo-relative). When
+            omitted, uses a safe default: .scribe/card.md, README.md,
+            CHANGELOG.md. A future release sources this from
+            .scribe/scribe.yaml.
+
+    Returns a dict with tracked paths, stale_count, and per-path
+    {status, reason, doc_last_touch, code_last_touch} entries.
+    """
+    _reload()
+    return card.review(repo, tracked=tracked)
+
+
+@mcp.tool()
 def scribe_update(
     repo: str,
     change_summary: str,

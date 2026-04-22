@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -238,6 +239,152 @@ def _count_lines(path: Path) -> int:
         return 0
     with path.open("rb") as f:
         return sum(1 for _ in f)
+
+
+# ---------------------------------------------------------------------
+# v0.1.0+ — scribe_review (ADR-004: coherence pass)
+# ---------------------------------------------------------------------
+
+# Default paths scribe treats as tracked docs when no .scribe/scribe.yaml
+# is present. A future tick adds the yaml + override.
+_DEFAULT_TRACKED_DOCS = (
+    ".scribe/card.md",
+    "README.md",
+    "CHANGELOG.md",
+)
+
+# Directories that are NOT "code" for the staleness heuristic. A change
+# here doesn't imply docs drifted; these are tooling/state surfaces.
+_NON_CODE_PREFIXES = (
+    ".scribe/",
+    ".hone/",
+    ".lighthouse/",
+    ".visionlog/",
+    ".research/",
+    ".ike/",
+    ".github/",
+    ".claude/",
+    "docs/",       # docs themselves; changes here are doc-driven
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE",
+)
+
+
+def _git_last_touch(repo_root: Path, path: str) -> dict | None:
+    """Return {sha, iso, subject} for the most recent commit that
+    touched `path`, or None if git has no record. Uses `--follow` so
+    renames are handled. Returns None on any subprocess failure —
+    scribe must not fail noisily on repos without git history.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "log", "-1",
+             "--follow", "--format=%H|%cI|%s", "--", path],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    sha, iso, subject = out.stdout.strip().split("|", 2)
+    return {"sha": sha, "iso": iso, "subject": subject}
+
+
+def _git_last_code_touch(repo_root: Path) -> dict | None:
+    """Find the most recent commit whose changeset touched something
+    OTHER than docs / tool state. That commit represents code drift
+    docs might need to react to."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "log",
+             "--format=%H|%cI|%s", "--name-only", "-n", "50"],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0:
+        return None
+
+    commit: dict[str, str] | None = None
+    for line in out.stdout.splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+        if "|" in line and line.count("|") >= 2 and len(line.split("|", 2)[0]) == 40:
+            sha, iso, subject = line.split("|", 2)
+            commit = {"sha": sha, "iso": iso, "subject": subject}
+            continue
+        # file path under current commit
+        if commit is None:
+            continue
+        if not any(line == p or line.startswith(p) for p in _NON_CODE_PREFIXES):
+            return commit
+    return None
+
+
+def review(repo: str, tracked: list[str] | None = None) -> dict:
+    """Coherence pass. Returns tracked docs that look stale relative to
+    the most recent code commit.
+
+    Heuristic (v0.1.0): a doc is `stale` if the most recent commit that
+    touched it predates the most recent non-doc commit. `fresh` otherwise.
+    `unknown` when git has no record of the doc (e.g. not committed yet).
+
+    Scribe makes no claim about *what* the doc should say — that's
+    `scribe_suggest`'s job (next tick). Review just flags the gap.
+    """
+    repo_root = resolve_repo(repo)
+    if tracked is None:
+        tracked = list(_DEFAULT_TRACKED_DOCS)
+
+    code_head = _git_last_code_touch(repo_root)
+
+    results: list[dict] = []
+    for path in tracked:
+        doc_commit = _git_last_touch(repo_root, path)
+        if doc_commit is None:
+            results.append({
+                "path": path,
+                "status": "unknown",
+                "reason": "not yet committed, or git unavailable",
+                "doc_last_touch": None,
+                "code_last_touch": code_head,
+            })
+            continue
+        if code_head is None:
+            results.append({
+                "path": path,
+                "status": "fresh",
+                "reason": "no subsequent code commits detected",
+                "doc_last_touch": doc_commit,
+                "code_last_touch": None,
+            })
+            continue
+        if doc_commit["iso"] < code_head["iso"]:
+            results.append({
+                "path": path,
+                "status": "stale",
+                "reason": f"last updated at {doc_commit['iso']}; code moved at {code_head['iso']} (commit {code_head['sha'][:7]}: {code_head['subject']!r})",
+                "doc_last_touch": doc_commit,
+                "code_last_touch": code_head,
+            })
+        else:
+            results.append({
+                "path": path,
+                "status": "fresh",
+                "reason": f"last updated at {doc_commit['iso']}, after code at {code_head['iso']}",
+                "doc_last_touch": doc_commit,
+                "code_last_touch": code_head,
+            })
+
+    stale = [r for r in results if r["status"] == "stale"]
+    return {
+        "repo": repo,
+        "tracked": tracked,
+        "stale_count": len(stale),
+        "results": results,
+    }
 
 
 # ---------------------------------------------------------------------

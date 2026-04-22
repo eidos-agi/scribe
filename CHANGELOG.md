@@ -3,6 +3,20 @@
 All notable changes to scribe are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] — 2026-04-22
+
+### Added
+
+- `scribe_review(repo, tracked?)` — coherence-pass tool that flags tracked docs whose last git-touch predates the most recent non-doc commit. Returns per-path `{status, reason, doc_last_touch, code_last_touch}` with status ∈ `{stale, fresh, unknown}`. Default tracked list: `.scribe/card.md`, `README.md`, `CHANGELOG.md`. Implementation walks `git log --follow` for each doc and compares ISO timestamps against the newest non-doc commit. Fails open — returns `unknown` when git is unavailable or the path has no history.
+- 3 new tests covering stale-vs-fresh-vs-unknown paths.
+
+### Still pending (ADR-004)
+
+- `scribe_suggest(repo, change)` — `claude -p` delegation for ranked-doc recommendations.
+- `.scribe/scribe.yaml` — caller-editable tracked-doc list (replaces the hardcoded default).
+
+[0.1.1]: https://github.com/eidos-agi/scribe/releases/tag/v0.1.1
+
 ## [0.1.0] — 2026-04-22
 
 Pivot to "technical writer" framing per ADR-004 (supersedes ADR-001).

@@ -176,6 +176,81 @@ def test_v0_0_1_new_card_still_works(tmp_path):
 
 
 # ---------------------------------------------------------------------
+# v0.1.0 — scribe_review (ADR-004 coherence pass)
+# ---------------------------------------------------------------------
+
+
+def _git(cwd, *args):
+    import subprocess
+    subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        check=True, capture_output=True, text=True,
+        env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t", "HOME": str(cwd)},
+    )
+
+
+def test_review_flags_doc_older_than_code(tmp_path):
+    """A doc committed earlier than the latest code commit is `stale`."""
+    from scribe import card
+    import time
+
+    repo_dir = tmp_path / "r"
+    repo_dir.mkdir()
+    _git(repo_dir, "init", "-q")
+    (repo_dir / "README.md").write_text("original readme\n")
+    _git(repo_dir, "add", "README.md")
+    _git(repo_dir, "commit", "-q", "-m", "initial readme")
+
+    # Wait then add a code change so its iso timestamp is strictly later
+    time.sleep(1.1)
+    (repo_dir / "main.py").write_text("print('hi')\n")
+    _git(repo_dir, "add", "main.py")
+    _git(repo_dir, "commit", "-q", "-m", "add code")
+
+    r = card.review(str(repo_dir), tracked=["README.md"])
+    assert r["stale_count"] == 1
+    assert r["results"][0]["status"] == "stale"
+    assert "README" in r["results"][0]["path"]
+
+
+def test_review_marks_fresh_doc(tmp_path):
+    """A doc committed AFTER the latest code commit is `fresh`."""
+    from scribe import card
+    import time
+
+    repo_dir = tmp_path / "r"
+    repo_dir.mkdir()
+    _git(repo_dir, "init", "-q")
+    (repo_dir / "main.py").write_text("print('hi')\n")
+    _git(repo_dir, "add", "main.py")
+    _git(repo_dir, "commit", "-q", "-m", "code")
+
+    time.sleep(1.1)
+    (repo_dir / "README.md").write_text("updated readme\n")
+    _git(repo_dir, "add", "README.md")
+    _git(repo_dir, "commit", "-q", "-m", "docs: freshen")
+
+    r = card.review(str(repo_dir), tracked=["README.md"])
+    assert r["stale_count"] == 0
+    assert r["results"][0]["status"] == "fresh"
+
+
+def test_review_unknown_when_not_committed(tmp_path):
+    """A tracked path with no git record is `unknown`, not stale."""
+    from scribe import card
+
+    repo_dir = tmp_path / "r"
+    repo_dir.mkdir()
+    _git(repo_dir, "init", "-q")
+    (repo_dir / "main.py").write_text("print('x')\n")
+    _git(repo_dir, "add", "main.py")
+    _git(repo_dir, "commit", "-q", "-m", "code")
+
+    r = card.review(str(repo_dir), tracked=["docs/nonexistent.md"])
+    assert r["results"][0]["status"] == "unknown"
+
+
+# ---------------------------------------------------------------------
 # ADR-001 regression — no LLM synthesis inside scribe
 # ---------------------------------------------------------------------
 
