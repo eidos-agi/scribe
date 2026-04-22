@@ -117,7 +117,14 @@ def init(repo: str) -> dict:
 
 
 def read(repo: str, recent: int = 10) -> dict:
-    """Return the current card body + last N update-log entries."""
+    """Return the current card body + last N update-log entries.
+
+    Also returns `callers_seen`: a sorted list of every distinct
+    author_tool that has ever called scribe_update for this repo,
+    derived from a full scan of updates.jsonl. Useful for repo owners
+    to see "who's been updating my card" at a glance. Pure derivation
+    from existing data — no new storage.
+    """
     d = scribe_dir(repo)
     card_path = d / "card.md"
     updates_path = d / "updates.jsonl"
@@ -125,9 +132,23 @@ def read(repo: str, recent: int = 10) -> dict:
     card = card_path.read_text(encoding="utf-8") if card_path.exists() else None
 
     updates: list[dict] = []
+    callers: set[str] = set()
     if updates_path.exists():
-        lines = updates_path.read_text(encoding="utf-8").splitlines()
-        for raw in lines[-max(1, min(recent, 200)):]:
+        all_lines = updates_path.read_text(encoding="utf-8").splitlines()
+        # Full scan for callers_seen (authoritative across all history),
+        # then slice for recent_updates display.
+        for raw in all_lines:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                record = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            author = record.get("author_tool")
+            if author:
+                callers.add(author)
+        for raw in all_lines[-max(1, min(recent, 200)):]:
             raw = raw.strip()
             if not raw:
                 continue
@@ -143,6 +164,7 @@ def read(repo: str, recent: int = 10) -> dict:
         "card_exists": card is not None,
         "recent_updates": updates,
         "update_count": _count_lines(updates_path),
+        "callers_seen": sorted(callers),
     }
 
 

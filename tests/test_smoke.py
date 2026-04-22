@@ -62,6 +62,34 @@ def test_update_log_only_when_no_new_card(tmp_path):
     assert card.read(repo)["update_count"] == before + 1
 
 
+def test_callers_seen_aggregates_distinct_author_tools(tmp_path):
+    """TASK-0003: scribe_read returns a sorted list of distinct author_tools
+    seen across all updates.jsonl entries."""
+    from scribe import card
+
+    repo = str(tmp_path / "r")
+    card.init(repo)  # author_tool not set on init entry
+    card.update(repo, change_summary="first", author_tool="hone")
+    card.update(repo, change_summary="second", author_tool="hone")
+    card.update(repo, change_summary="third", author_tool="stepproof")
+    card.update(repo, change_summary="fourth", author_tool="cli")
+
+    data = card.read(repo, recent=2)
+    assert data["callers_seen"] == ["cli", "hone", "stepproof"]
+
+
+def test_callers_seen_empty_when_no_updates(tmp_path):
+    from scribe import card
+
+    repo = str(tmp_path / "r")
+    # Don't even init — no updates.jsonl
+    d = card.scribe_dir(repo)
+    (d / "updates.jsonl").write_text("")
+
+    data = card.read(repo)
+    assert data["callers_seen"] == []
+
+
 def test_update_writes_card_when_new_card_provided(tmp_path):
     from scribe import card
 
