@@ -11,6 +11,11 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
 [project.scripts]
 scribe = "scribe.server:main"
 
@@ -23,3 +28,6 @@ packages = ["src/scribe"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/scribe/team.yaml" = "scribe/team.yaml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
