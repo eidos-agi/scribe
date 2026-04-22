@@ -1,8 +1,8 @@
 {
   "last_outcome": "improved",
-  "last_tick_id": "2026-04-21T210717Z",
+  "last_tick_id": "2026-04-22T022205Z",
   "target": "scribe",
-  "tick_count": 2,
+  "tick_count": 3,
   "trajectory": [
     {
       "outcome": "improved",
@@ -11,6 +11,10 @@
     {
       "outcome": "improved",
       "tick_id": "2026-04-21T210717Z"
+    },
+    {
+      "outcome": "improved",
+      "tick_id": "2026-04-22T022205Z"
     }
   ]
 }

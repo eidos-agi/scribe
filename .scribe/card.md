@@ -1,20 +1,26 @@
 ---
 name: scribe
 version: 0.0.1
+license: Apache-2.0
+github_url: https://github.com/eidos-agi/scribe
+visibility: public
 one_liner: Per-repo documentarian MCP. Keeps a repo's authoritative self-description current as other tools change it.
 when_to_reach_for:
   - You are a tool that just modified a repo — call scribe_update so the card reflects what the repo IS now
   - You need to know what a repo does at a glance — scribe_read returns the card
   - You are starting a new repo and want scribe-tracked self-description — scribe_init
+  - You are a card author and want consistent teammate names — scribe_team returns the 12-entry roster
 invoke:
   - mcp__scribe__scribe_init(repo)
   - mcp__scribe__scribe_read(repo, recent=10)
   - mcp__scribe__scribe_update(repo, change_summary, new_card?, author_tool?)
+  - mcp__scribe__scribe_team()
 capabilities:
   - Create .scribe/ in any repo (idempotent)
   - Read card + last N update log entries
   - Atomically overwrite card.md + append to updates.jsonl
-  - No LLM synthesis — the calling tool writes the new card
+  - Expose team roster (src/scribe/team.yaml, 12 entries)
+  - Hot-reload on every MCP call (importlib.reload pattern; no restart needed for code edits)
 not_capabilities:
   - Cross-repo anything (omni does that)
   - LLM synthesis (ADR-001 — the caller has better context)
@@ -28,19 +34,24 @@ adrs:
 layout:
   - .scribe/card.md — the authoritative tool card (this file)
   - .scribe/updates.jsonl — append-only log of every change
-install: claude mcp add scribe --scope user -- /path/to/scribe/.venv/bin/scribe
-authored_by: hone-session-2026-04-21
-updated: scribe_update will set this
+install:
+  - clone: git clone https://github.com/eidos-agi/scribe.git ~/repos-eidos-agi/scribe
+  - sync: cd ~/repos-eidos-agi/scribe && uv sync
+  - register: claude mcp add scribe --scope user -- /path/to/scribe/.venv/bin/scribe
 teammates_known: hone, scribe, stepproof, lighthouse, ike, visionlog, research-md, omni, loss-loop, improve-forge, learning-forge, mcp-self-report
-mcp_tools: 4 (added scribe_team in tick 9)
-
+mcp_tools: 4
+updated_by: hone-tick-2026-04-22T025202Z
 ---
 
 # scribe
 
 The per-repo documentarian. Point other tools at scribe after they modify a repo; scribe keeps the repo's self-description current.
 
-Scribe is deliberately small. Three MCP tools, ~150 lines of code, no LLM inside. The value is disciplinary: when hone or stepproof or lighthouse land a change, they MUST call scribe_update in the same ceremony — that is what keeps the card fresh. A tool that forgets is the bug, not scribe.
+Public at **https://github.com/eidos-agi/scribe** · Apache-2.0 · Alpha v0.0.1.
+
+## The discipline
+
+Scribe is deliberately small. Four MCP tools, ~200 lines of code, no LLM inside. The value is disciplinary: when hone or stepproof or lighthouse land a change, they MUST call scribe_update in the same ceremony — that is what keeps the card fresh. A tool that forgets is the bug, not scribe.
 
 ## How the team uses scribe
 

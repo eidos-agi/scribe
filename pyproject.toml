@@ -3,6 +3,8 @@ name = "scribe"
 version = "0.0.1"
 description = "Per-repo documentarian MCP. Maintains a repo's authoritative self-description as other tools change it."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",
