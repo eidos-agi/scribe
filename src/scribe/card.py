@@ -188,32 +188,12 @@ def _count_lines(path: Path) -> int:
         return sum(1 for _ in f)
 
 
-def read_team() -> dict:
-    """Load the known-team roster shipped with scribe.
-
-    The roster is a static yaml at src/scribe/team.yaml. Edit it when
-    the stack grows. This is NOT cross-repo aggregation (GUARD-002) —
-    it's a static roster of tools scribe knows about, so card-writing
-    callers can reach for teammates by name with consistent wording.
-
-    Fails open: if PyYAML isn't installed or the file is missing,
-    return an empty team with an explanatory note.
-    """
-    team_path = Path(__file__).parent / "team.yaml"
-    if not team_path.exists():
-        return {"version": 0, "team": [], "note": "team.yaml missing"}
-    try:
-        import yaml  # type: ignore
-    except ImportError:
-        return {
-            "version": 0,
-            "team": [],
-            "note": "PyYAML not installed; install scribe with `uv sync`",
-        }
-    try:
-        data = yaml.safe_load(team_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        return {"version": 0, "team": [], "note": f"parse error: {e}"}
-    if not isinstance(data, dict):
-        return {"version": 0, "team": [], "note": "team.yaml not a mapping"}
-    return data
+# ---------------------------------------------------------------------
+# REMOVED: read_team() + team.yaml
+# ---------------------------------------------------------------------
+# Earlier versions shipped a static team.yaml roster and a read_team()
+# loader so the scribe_team() MCP tool could return "who else is in the
+# eidos stack." That baked cross-coupling into scribe's library —
+# shipping a directory of siblings. Removed per the rule: no enforced
+# coupling between tools. If a caller wants a directory of related
+# tools, they maintain one in their own environment.

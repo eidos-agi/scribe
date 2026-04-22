@@ -58,22 +58,6 @@ def scribe_read(repo: str, recent: int = 10) -> dict[str, Any]:
 
 
 @mcp.tool()
-def scribe_team() -> dict[str, Any]:
-    """Return the roster of tools scribe knows about.
-
-    Useful before writing a new card — callers read the roster,
-    pick relevant teammates, and mention them in the card's
-    `teammates` field with consistent naming + one-liners.
-
-    Scribe does not enforce this list. It's data, not policy.
-    To add a new team member, edit `src/scribe/team.yaml` and
-    reinstall (`uv sync`).
-    """
-    _reload()
-    return card.read_team()
-
-
-@mcp.tool()
 def scribe_update(
     repo: str,
     change_summary: str,

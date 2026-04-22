@@ -80,41 +80,6 @@ def test_update_writes_card_when_new_card_provided(tmp_path):
 
 
 # ---------------------------------------------------------------------
-# team roster
-# ---------------------------------------------------------------------
-
-
-def test_read_team_has_members():
-    from scribe import card
-
-    team = card.read_team()
-    assert isinstance(team, dict)
-    assert "team" in team
-    assert len(team["team"]) >= 8  # at least the 8 core MCPs
-
-
-def test_every_team_entry_has_required_fields():
-    """Meta-test for the 12-entry team.yaml roster."""
-    from scribe import card
-
-    team = card.read_team()
-    required = {"name", "one_liner", "invoke"}
-    for entry in team["team"]:
-        missing = required - set(entry.keys())
-        assert not missing, f"entry {entry.get('name')!r} missing {missing}"
-
-
-def test_team_includes_core_eidos_mcps():
-    from scribe import card
-
-    team = card.read_team()
-    names = {e["name"] for e in team["team"]}
-    # scribe must know about these — it's the documentarian
-    for core in ("hone", "scribe", "stepproof", "lighthouse", "visionlog"):
-        assert core in names, f"team roster missing core MCP: {core}"
-
-
-# ---------------------------------------------------------------------
 # ADR-001 regression — no LLM synthesis inside scribe
 # ---------------------------------------------------------------------
 
