@@ -2,6 +2,10 @@
 
 Accumulated learnings, newest at top.
 
+## 2026-04-22T033156Z — improved
+Smoke tests for scribe mirroring tick 20's pattern for hone. 9 tests in tests/test_smoke.py covering card.py: init idempotency, read+update roundtrip, log-only update (GUARD-003 regression — proves every call to update() appends to updates.jsonl even when new_card is None), update that writes card, team roster has members, every roster entry has required fields (name/one_liner/invoke — the meta-test for the 12-entry yaml), core MCPs present in roster, and a source-scan test enforcing ADR-001 (no LLM SDK imports anywhere in src/scribe/). The ADR-001 test is real defense — if a future tick tries to add `import anthropic` or similar to scribe's code, the test fails loudly. pytest dev-group dep + pyproject config added. All 9 passed in 0.03s.
+
+Full turn: [`turns/2026-04-22T033156Z.md`](turns/2026-04-22T033156Z.md)
 ## 2026-04-22T022205Z — improved
 Tick 17 exercised scribe's measure.cmd from scribe/.hone/hone.yaml for the first time — queued since tick 10. The Bash invocation parsed updates.jsonl and produced a real numeric signal: 2 distinct non-cli callers (hone, hone-session), 6 total updates. That's direct evidence the yaml→bash→signal pipeline works end-to-end for any target that declares a measure command. Separately, synthesized a fresh scribe card: added github_url (public at https://github.com/eidos-agi/scribe), visibility=public, the measure_snapshot from this tick, and a working install sequence (clone + sync + mcp add) that outsiders can actually follow. Also noted license: (none yet — add before external use) in the frontmatter — a real gap for a public repo. Card went from 36 lines to 59 lines of frontmatter carrying the full v0.0.1 state.
 

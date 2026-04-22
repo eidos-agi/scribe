@@ -68,6 +68,21 @@ together: scribe keeps each repo's card fresh; omni indexes the
 union of all repos' cards so any agent can search "what tool does
 X?" and get the right answer.
 
+## Improving scribe via hone
+
+This repo ships a `.mcp.json` that registers **hone** via uvx-from-git.
+Clone the repo, open it in Claude Code, and `hone scribe` just works
+— hone is fetched from `github.com/eidos-agi/hone` on first use and
+runs in a uvx-managed venv. No separate install step needed.
+
+```bash
+git clone https://github.com/eidos-agi/scribe
+cd scribe
+claude      # open Claude Code here; hone auto-registers from .mcp.json
+# then in the Claude session:
+/loop 15m hone
+```
+
 ## Install
 
 ```bash

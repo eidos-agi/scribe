@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "hone": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/eidos-agi/hone.git",
+        "hone"
+      ]
+    }
+  }
+}
