@@ -61,30 +61,43 @@ def scribe_read(repo: str, recent: int = 10) -> dict[str, Any]:
 def scribe_update(
     repo: str,
     change_summary: str,
-    new_card: str | None = None,
+    path: str = ".scribe/card.md",
+    new_content: str | None = None,
     author_tool: str | None = None,
+    new_card: str | None = None,
 ) -> dict[str, Any]:
-    """Log a change; optionally overwrite card.md with a fresh synthesis.
+    """Log a change; optionally overwrite the file at `path` atomically.
+
+    v0.1.0 API — path is now explicit. Scribe can update any tracked doc
+    in the repo: card.md, README.md, CHANGELOG.md, docs/*, .claude/skills/*.md,
+    etc. See visionlog ADR-004 for the reframe from data-layer-only to
+    technical-writer.
 
     Args:
         repo: path or slug.
-        change_summary: one-paragraph description of what changed — goes
-            into updates.jsonl as the canonical record of why the card
-            moved. Even if new_card is None, the log entry helps.
-        new_card: optional full new card contents. If provided, card.md
-            is atomically overwritten. Synthesis is the *caller's* job —
-            scribe does not run an LLM to compose the new card.
+        change_summary: one-paragraph description of what changed. Goes
+            into updates.jsonl as the canonical record of why the write
+            happened. Required regardless of whether content is written.
+        path: repo-relative destination. Defaults to ".scribe/card.md"
+            (the v0.0.1 behavior) so existing v0.0.1 callers still work.
+        new_content: optional. If provided, the file at `path` is
+            atomically overwritten with this content. Synthesis is the
+            caller's job — scribe does not import an LLM SDK. For
+            agent-synthesized updates, the caller runs claude -p or
+            similar and hands the result in here.
         author_tool: who made the call (e.g., "hone", "stepproof", "cli").
             Stored in the update entry for provenance.
-
-    Returns what was written and where.
+        new_card: v0.0.1 backward-compat alias for new_content when
+            path is the default card. Kept so old callers keep working.
     """
     _reload()
     return card.update(
         repo=repo,
         change_summary=change_summary,
-        new_card=new_card,
+        path=path,
+        new_content=new_content,
         author_tool=author_tool,
+        new_card=new_card,
     )
 
 

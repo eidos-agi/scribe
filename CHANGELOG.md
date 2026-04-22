@@ -3,6 +3,35 @@
 All notable changes to scribe are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.0] — 2026-04-22
+
+Pivot to "technical writer" framing per ADR-004 (supersedes ADR-001).
+**Breaking change** to `scribe_update` signature — callers that pass
+only `change_summary` + `new_card` still work via a compat shim, but
+the documented API is now path-generic.
+
+### Added
+
+- `scribe_update` accepts a `path` argument (repo-relative, default `.scribe/card.md`). Any file under the repo can be the destination — README.md, CHANGELOG.md, .scribe/card.md, docs/*, .claude/skills/*.md, etc.
+- `scribe_update` accepts `new_content` as the canonical argument name for the file body. `new_card` remains as a v0.0.1 alias.
+- `updates.jsonl` records `path` + `file_written` on every entry; `card_written` is preserved for backward-compat readers.
+- Return value from `scribe_update` includes `path`, `full_path`, `file_written` (v0.1.0) alongside `card_written` / `card_path` (v0.0.1 compat).
+- 3 new tests covering path-generic writes, multi-path log entries, and the v0.0.1 backward-compat shim.
+
+### Changed
+
+- `src/scribe/card.py update()` signature changed to `(repo, change_summary, path=".scribe/card.md", new_content=None, author_tool=None, new_card=None)`.
+- `ADR-001` in visionlog marked **superseded** by `ADR-004`.
+- README rewritten to describe scribe as a technical writer; v0.0.1 vs v0.1.0 status split.
+
+### Not yet in v0.1.0 (ADR-004 scope, future ticks)
+
+- `scribe_review(repo)` — coherence-pass tool returning stale docs.
+- `scribe_suggest(repo, change)` — delegates to `claude -p` for ranked-doc recommendations.
+- `.scribe/scribe.yaml` config for the tracked-doc list.
+
+[0.1.0]: https://github.com/eidos-agi/scribe/releases/tag/v0.1.0
+
 ## [0.0.1] — 2026-04-22
 
 First public release.

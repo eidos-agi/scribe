@@ -2,6 +2,10 @@
 
 Accumulated learnings, newest at top.
 
+## 2026-04-22T060709Z — improved
+Scribe pivoted to "technical writer + documentation curation" framing, with the trilogy paper trail recorded. Visionlog ADR-004 created, marking ADR-001 (data-layer only) as superseded. Rationale captures what changed and why: the data-layer framing doesn't sell; real docs drift across README/CHANGELOG/card/skills not just card; v0.1.0 adds scribe_review + scribe_suggest + path-generic scribe_update; agent delegation via claude -p is permitted (still no direct Anthropic SDK). Ike TASK-0005 created capturing the v0.1.0 implementation scope with acceptance criteria. Scribe repo README rewritten to match — v0.0.1 status clear, v0.1.0 scope laid out. No scribe code changes this tick; policy + direction only. Website (already aspirational from tick 32) and scribe repo now tell the same story.
+
+Full turn: [`turns/2026-04-22T060709Z.md`](turns/2026-04-22T060709Z.md)
 ## 2026-04-22T052233Z — improved
 Landed scribe TASK-0003 (callers_seen). scribe_read now returns a `callers_seen` field: a sorted list of every distinct author_tool that has ever called scribe_update for the repo, derived on-the-fly from a full scan of updates.jsonl. Pure addition — no signature change, no new storage, no cross-coupling. Two tests added: aggregation across multiple callers (verifies sort + dedup) and empty-state fallback. Scribe test count 6 → 8, all passing. Also closed hone's TASK-0005 (auto-sync guardrails from visionlog) as obsolete — tick 28's cross-coupling removal means auto-syncing at config-load time would reintroduce exactly what we just removed. Note preserved in hone/.ike/tasks/completed/TASK-0005-obsolete.md.
 

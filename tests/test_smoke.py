@@ -108,6 +108,74 @@ def test_update_writes_card_when_new_card_provided(tmp_path):
 
 
 # ---------------------------------------------------------------------
+# v0.1.0 — path-generic API (ADR-004)
+# ---------------------------------------------------------------------
+
+
+def test_update_writes_arbitrary_path(tmp_path):
+    """ADR-004: scribe_update can write any file under the repo, not
+    just .scribe/card.md."""
+    from scribe import card
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+
+    r = card.update(
+        repo=repo,
+        path="README.md",
+        change_summary="refresh README data-layer section",
+        new_content="# Repo\n\nThree tables: users, sessions, user_preferences.\n",
+        author_tool="scribe-review",
+    )
+
+    assert r["file_written"] is True
+    assert r["path"] == "README.md"
+    assert (tmp_path / "r" / "README.md").read_text() == "# Repo\n\nThree tables: users, sessions, user_preferences.\n"
+    # The card was NOT written — this was a different file.
+    assert r["card_written"] is False
+
+
+def test_update_logs_path_on_every_entry(tmp_path):
+    """ADR-004 + GUARD-003: updates.jsonl records `path` so the
+    trajectory of changes across multiple files is queryable."""
+    from scribe import card
+    import json
+    from pathlib import Path
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+    card.update(repo, path="README.md", change_summary="x", new_content="A", author_tool="t")
+    card.update(repo, path="CHANGELOG.md", change_summary="y", new_content="B", author_tool="t")
+    card.update(repo, path="docs/schema.md", change_summary="z", new_content="C", author_tool="t")
+
+    updates_path = Path(tmp_path / "r" / ".scribe" / "updates.jsonl")
+    entries = [json.loads(line) for line in updates_path.read_text().splitlines() if line.strip()]
+
+    # init + 3 updates
+    paths_seen = [e.get("path") for e in entries if e.get("action") == "update"]
+    assert paths_seen == ["README.md", "CHANGELOG.md", "docs/schema.md"]
+
+
+def test_v0_0_1_new_card_still_works(tmp_path):
+    """Backward compat: v0.0.1 callers passing `new_card=` still work."""
+    from scribe import card
+
+    repo = str(tmp_path / "r")
+    card.init(repo)
+
+    r = card.update(
+        repo=repo,
+        change_summary="v0.0.1 style call",
+        new_card="---\nname: legacy\n---\n",
+        author_tool="legacy-caller",
+    )
+
+    # Writes to default .scribe/card.md
+    assert r["card_written"] is True
+    assert r["path"] == ".scribe/card.md"
+
+
+# ---------------------------------------------------------------------
 # ADR-001 regression — no LLM synthesis inside scribe
 # ---------------------------------------------------------------------
 

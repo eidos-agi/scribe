@@ -171,34 +171,64 @@ def read(repo: str, recent: int = 10) -> dict:
 def update(
     repo: str,
     change_summary: str,
-    new_card: str | None = None,
+    path: str = ".scribe/card.md",
+    new_content: str | None = None,
     author_tool: str | None = None,
+    # Backward-compat: v0.0.1 callers passed `new_card`. If provided and
+    # new_content is None, treat as the v0.0.1 card write.
+    new_card: str | None = None,
 ) -> dict:
-    """Log a change. If new_card is provided, overwrite card.md atomically."""
+    """Log a change. If new_content is provided, overwrite the file at
+    `path` atomically. Path is relative to the target repo root.
+
+    v0.1.0 API:
+      update(repo, change_summary, path=".scribe/card.md", new_content=...)
+
+    v0.0.1 compat:
+      update(repo, change_summary, new_card=...) still works — equivalent
+      to update(repo, change_summary, path=".scribe/card.md",
+      new_content=new_card).
+
+    ADR-004 — scribe is a technical writer, any file under the repo may
+    be a tracked doc. updates.jsonl records `path` on every entry so
+    the trajectory of changes across multiple files is queryable.
+    """
+    repo_root = resolve_repo(repo)
+    target_path = repo_root / path
     d = scribe_dir(repo)
-    card_path = d / "card.md"
     updates_path = d / "updates.jsonl"
 
-    card_written = False
-    if new_card is not None:
-        _atomic_write(card_path, new_card)
-        card_written = True
+    # Unify the two input paths: prefer new_content (v0.1.0), fall back
+    # to new_card (v0.0.1 compat).
+    content = new_content if new_content is not None else new_card
+
+    file_written = False
+    if content is not None:
+        _atomic_write(target_path, content)
+        file_written = True
 
     _append_jsonl(
         updates_path,
         {
             "timestamp": _now_iso(),
             "action": "update",
+            "path": path,
             "change_summary": change_summary,
-            "card_written": card_written,
+            "file_written": file_written,
+            # v0.0.1 field, preserved for readers of old logs:
+            "card_written": file_written and path == ".scribe/card.md",
             "author_tool": author_tool,
         },
     )
 
     return {
         "scribe_dir": str(d),
-        "card_path": str(card_path),
-        "card_written": card_written,
+        "path": path,
+        "full_path": str(target_path),
+        "file_written": file_written,
+        # v0.0.1 compat field:
+        "card_written": file_written and path == ".scribe/card.md",
+        "card_path": str(target_path) if path == ".scribe/card.md" else None,
         "change_logged": True,
     }
 
