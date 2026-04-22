@@ -235,6 +235,53 @@ def test_review_marks_fresh_doc(tmp_path):
     assert r["results"][0]["status"] == "fresh"
 
 
+def test_init_creates_scribe_yaml(tmp_path):
+    """v0.1.2: scribe_init writes a default scribe.yaml with tracked defaults."""
+    from scribe import card
+
+    repo = str(tmp_path / "r")
+    r = card.init(repo)
+
+    assert r["config_created"] is True
+    cfg = card.load_config(repo)
+    assert cfg.get("version") == 0
+    tracked = cfg.get("tracked") or []
+    assert ".scribe/card.md" in tracked
+    assert "README.md" in tracked
+    assert "CHANGELOG.md" in tracked
+
+
+def test_review_uses_scribe_yaml_when_present(tmp_path):
+    """scribe_review prefers the repo's scribe.yaml over hardcoded defaults."""
+    from scribe import card
+    import time
+
+    repo_dir = tmp_path / "r"
+    repo_dir.mkdir()
+    _git(repo_dir, "init", "-q")
+    (repo_dir / "main.py").write_text("x\n")
+    _git(repo_dir, "add", "main.py")
+    _git(repo_dir, "commit", "-q", "-m", "code")
+
+    time.sleep(1.1)
+    (repo_dir / "docs").mkdir()
+    (repo_dir / "docs" / "api.md").write_text("api\n")
+    _git(repo_dir, "add", "docs/api.md")
+    _git(repo_dir, "commit", "-q", "-m", "docs: api")
+
+    # Write a scribe.yaml that tracks docs/api.md (not in the defaults).
+    (repo_dir / ".scribe").mkdir(exist_ok=True)
+    (repo_dir / ".scribe" / "scribe.yaml").write_text(
+        "version: 0\ntracked:\n  - docs/api.md\n"
+    )
+
+    r = card.review(str(repo_dir))
+    assert r["tracked"] == ["docs/api.md"]
+    # docs/api.md was committed after code, so it's fresh.
+    assert r["stale_count"] == 0
+    assert r["results"][0]["status"] == "fresh"
+
+
 def test_review_unknown_when_not_committed(tmp_path):
     """A tracked path with no git record is `unknown`, not stale."""
     from scribe import card

@@ -3,6 +3,27 @@
 All notable changes to scribe are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] — 2026-04-22
+
+### Added
+
+- `.scribe/scribe.yaml` — caller-editable config listing which repo-relative paths scribe treats as tracked docs. Schema v0 has a single `tracked: list[str]` field. `scribe_init` now writes a default scribe.yaml if one doesn't exist (adds `.scribe/card.md`, `README.md`, `CHANGELOG.md` out of the gate).
+- `card.load_config(repo)` — loads and validates scribe.yaml; fails open to `{}` when missing, unparseable, or PyYAML unavailable.
+- `scribe_review` now prefers the repo's `scribe.yaml#tracked` list when present; falls back to hardcoded defaults otherwise. `scribe_suggest` (future tick) will use the same source.
+- pyyaml re-added as a dep (was removed in v0.0.2 after team.yaml was deleted).
+- 2 new tests: scribe_init creates the yaml with defaults; scribe_review reads the yaml's override list.
+
+### Changed
+
+- `scribe_init` return value adds `config_path` and `config_created`.
+- Init log entry in updates.jsonl now records `created_config` alongside `created_card`.
+
+### ADR-004 status
+
+**3 of 3 core features now shipped:** path-generic `scribe_update` (v0.1.0), `scribe_review` (v0.1.1), `scribe.yaml` (this release). The remaining ADR-004 sub-feature is `scribe_suggest(repo, change)` — the `claude -p`-delegated ranked-doc recommender.
+
+[0.1.2]: https://github.com/eidos-agi/scribe/releases/tag/v0.1.2
+
 ## [0.1.1] — 2026-04-22
 
 ### Added

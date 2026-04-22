@@ -2,6 +2,10 @@
 
 Accumulated learnings, newest at top.
 
+## 2026-04-22T063706Z — improved
+Shipped scribe v0.1.1 — the second of three ADR-004 sub-features. Added `scribe_review(repo, tracked?)` as an MCP tool + `card.review()` function. Implementation walks git log per tracked doc, compares ISO timestamps against the newest non-doc commit, classifies each as stale/fresh/unknown. Fails open on missing git or uncommitted paths. Default tracked list: `.scribe/card.md`, `README.md`, `CHANGELOG.md`. Three new tests (stale flagging, fresh passes, uncommitted path = unknown). 14/14 tests pass. CHANGELOG entry + v0.1.1 tag created + pushed. ADR-004 scope now 2/3 delivered; remaining follow-ups: scribe_suggest (claude -p delegation) and .scribe/scribe.yaml config.
+
+Full turn: [`turns/2026-04-22T063706Z.md`](turns/2026-04-22T063706Z.md)
 ## 2026-04-22T062158Z — improved
 Shipped scribe v0.1.0 — the core API change from ADR-004. scribe_update is now path-generic: accepts `(repo, change_summary, path=".scribe/card.md", new_content=None, author_tool=None, new_card=None)`. Any file under the repo can be the destination — README.md, CHANGELOG.md, docs/*, skill files, etc. updates.jsonl now records `path` + `file_written` per entry with `card_written` kept for compat. v0.0.1 callers still work unchanged because `new_card` is a compat alias for `new_content` when path is the default. Added 3 new tests (arbitrary path writes, multi-path log entries, v0.0.1 compat shim); 11/11 pass. CHANGELOG entry landed, version bumped to 0.1.0 in pyproject.toml, v0.1.0 annotated tag created + pushed. Still pending per ADR-004 (future ticks): scribe_review (coherence pass), scribe_suggest (claude -p delegation), .scribe/scribe.yaml config. The core of "scribe is a technical writer" now WORKS in code, not just prose.
 

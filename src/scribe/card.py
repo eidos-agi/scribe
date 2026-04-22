@@ -85,11 +85,50 @@ Until then, this is a placeholder. Read the README for the real thing.
 """
 
 
+DEFAULT_SCRIBE_YAML = """\
+# .scribe/scribe.yaml — which files scribe treats as tracked docs for
+# this repo. scribe_review compares each tracked path's last git-touch
+# against recent code commits. scribe_suggest (v0.1.2+) ranks which of
+# these paths should move for a given code change.
+#
+# Edit freely: add docs/*, .claude/skills/*.md, anything else that
+# tells the project what it is.
+
+version: 0
+
+tracked:
+  - .scribe/card.md
+  - README.md
+  - CHANGELOG.md
+"""
+
+
+def load_config(repo: str) -> dict:
+    """Load .scribe/scribe.yaml, or return {} if missing / unparseable.
+
+    Schema (v0):
+      tracked: list[str] — repo-relative paths scribe treats as docs
+    """
+    cfg_path = scribe_dir(repo) / "scribe.yaml"
+    if not cfg_path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        return {}
+    try:
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def init(repo: str) -> dict:
-    """Create .scribe/ in the target repo and write a minimal card if
-    none exists. Idempotent."""
+    """Create .scribe/ in the target repo. Idempotent. Writes a minimal
+    card.md + scribe.yaml if they don't already exist."""
     d = scribe_dir(repo)
     card_path = d / "card.md"
+    config_path = d / "scribe.yaml"
     updates_path = d / "updates.jsonl"
 
     created = False
@@ -101,12 +140,18 @@ def init(repo: str) -> dict:
         )
         created = True
 
+    config_created = False
+    if not config_path.exists():
+        _atomic_write(config_path, DEFAULT_SCRIBE_YAML)
+        config_created = True
+
     _append_jsonl(
         updates_path,
         {
             "timestamp": _now_iso(),
             "action": "init",
             "created_card": created,
+            "created_config": config_created,
         },
     )
 
@@ -114,6 +159,8 @@ def init(repo: str) -> dict:
         "scribe_dir": str(d),
         "card_path": str(card_path),
         "card_created": created,
+        "config_path": str(config_path),
+        "config_created": config_created,
     }
 
 
@@ -336,7 +383,13 @@ def review(repo: str, tracked: list[str] | None = None) -> dict:
     """
     repo_root = resolve_repo(repo)
     if tracked is None:
-        tracked = list(_DEFAULT_TRACKED_DOCS)
+        # Prefer the repo's own .scribe/scribe.yaml; fall back to defaults.
+        cfg = load_config(repo)
+        cfg_tracked = cfg.get("tracked") if isinstance(cfg, dict) else None
+        if isinstance(cfg_tracked, list) and cfg_tracked:
+            tracked = [str(p) for p in cfg_tracked]
+        else:
+            tracked = list(_DEFAULT_TRACKED_DOCS)
 
     code_head = _git_last_code_touch(repo_root)
 
