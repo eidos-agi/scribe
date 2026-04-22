@@ -2,6 +2,10 @@
 
 Accumulated learnings, newest at top.
 
+## 2026-04-22T052233Z — improved
+Landed scribe TASK-0003 (callers_seen). scribe_read now returns a `callers_seen` field: a sorted list of every distinct author_tool that has ever called scribe_update for the repo, derived on-the-fly from a full scan of updates.jsonl. Pure addition — no signature change, no new storage, no cross-coupling. Two tests added: aggregation across multiple callers (verifies sort + dedup) and empty-state fallback. Scribe test count 6 → 8, all passing. Also closed hone's TASK-0005 (auto-sync guardrails from visionlog) as obsolete — tick 28's cross-coupling removal means auto-syncing at config-load time would reintroduce exactly what we just removed. Note preserved in hone/.ike/tasks/completed/TASK-0005-obsolete.md.
+
+Full turn: [`turns/2026-04-22T052233Z.md`](turns/2026-04-22T052233Z.md)
 ## 2026-04-22T033156Z — improved
 Smoke tests for scribe mirroring tick 20's pattern for hone. 9 tests in tests/test_smoke.py covering card.py: init idempotency, read+update roundtrip, log-only update (GUARD-003 regression — proves every call to update() appends to updates.jsonl even when new_card is None), update that writes card, team roster has members, every roster entry has required fields (name/one_liner/invoke — the meta-test for the 12-entry yaml), core MCPs present in roster, and a source-scan test enforcing ADR-001 (no LLM SDK imports anywhere in src/scribe/). The ADR-001 test is real defense — if a future tick tries to add `import anthropic` or similar to scribe's code, the test fails loudly. pytest dev-group dep + pyproject config added. All 9 passed in 0.03s.
 

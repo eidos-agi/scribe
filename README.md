@@ -3,21 +3,32 @@
 [![CI](https://github.com/eidos-agi/scribe/actions/workflows/ci.yml/badge.svg)](https://github.com/eidos-agi/scribe/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-The per-repo documentarian. Scribe is the teammate every other tool
-calls when it has just changed a repo — *"you just modified me, update
-my self-description so the outside world still knows what I am."*
+**Technical writer for your repo.** Scribe authors and curates the docs that
+tell the project what it is — the card, the README, the CHANGELOG, the skill
+files, anything. When the code changes, scribe makes the documentation move
+with it so the repo's self-description never drifts.
 
 ## What scribe is
 
-A small MCP. Three tools. Data-layer only — no LLM synthesis inside
-scribe. The *intelligence* of writing a good tool card lives in the
-calling tool's ceremony; scribe just stores, reads, and logs changes.
+An MCP server. Three tools today (v0.0.1), heading to five (v0.1.0 per
+visionlog ADR-004). Storage + log is atomic. Authoring happens via the
+calling agent or through scribe delegating to `claude -p` — no direct
+Anthropic SDK use, ever.
 
 ```
 <repo>/.scribe/
-  card.md          # the authoritative tool card (markdown + YAML frontmatter)
-  updates.jsonl    # append-only log of every change that touched the card
+  card.md           # authoritative tool card (markdown + YAML frontmatter)
+  updates.jsonl     # append-only log of every change that touched the repo's docs
+  scribe.yaml       # v0.1.0 — lists which paths scribe treats as tracked docs
 ```
+
+## Status
+
+- **v0.0.1 — shipped.** Narrow data layer. Single file (`card.md`). No
+  synthesis. Current public release.
+- **v0.1.0 — planned.** Path-generic API, `scribe_review`, `scribe_suggest`,
+  `scribe.yaml` config, supersedes ADR-001. See `.visionlog/adr/ADR-004-*`
+  and `.ike/tasks/TASK-0005-*`.
 
 ## The team
 
@@ -35,33 +46,51 @@ Each eidos repo has a team of agents living in it:
 scribe is the teammate nobody remembers to be, which is exactly the
 reason tool cards go stale everywhere else.
 
-## MCP tools
+## MCP tools (v0.0.1)
 
 - `scribe_init(repo)` — set up `.scribe/` in the target repo (creates
   the directory + a minimal card.md if one doesn't exist)
 - `scribe_read(repo)` — return the current card plus the last N
-  entries from updates.jsonl
+  entries from updates.jsonl, plus a `callers_seen` list
 - `scribe_update(repo, change_summary, new_card?=None)` — record the
   change in updates.jsonl; if `new_card` is provided, overwrite
   card.md atomically
 
+## v0.1.0 additions (planned — ADR-004)
+
+- `scribe_update(repo, path, change_summary, new_content?, author_tool?)` —
+  **breaking change**: `path` is now explicit. Any file under the
+  repo, not just `.scribe/card.md`.
+- `scribe_review(repo)` — coherence pass: returns a list of tracked
+  docs that look stale relative to recent code changes.
+- `scribe_suggest(repo, change)` — given a code-change description,
+  delegates to `claude -p` to return a ranked list of docs that
+  should move, with reasoning.
+- `.scribe/scribe.yaml` — caller-editable list of paths scribe
+  treats as tracked (card.md, README.md, CHANGELOG.md, `docs/*`,
+  `.claude/skills/*.md`).
+
 ## How other tools use it
 
-At the end of any ceremony that landed a real change, the tool calls
-scribe_update. Example, from hone's Retain phase:
+When an agent ships a code change, it calls scribe for the doc
+updates that should move with it. In v0.0.1 this is card-only. In
+v0.1.0 scribe covers the full repo surface:
 
 ```
-# after a successful hone tick on target=X:
-mcp__scribe__scribe_update(
-  repo=X,
-  change_summary="Shrunk ceremony from 10 phases to 4",
-  new_card=<synthesized by the agent from old card + change>,
-)
+# after a successful code change
+mcp__scribe__scribe_suggest(repo=X, change="added user_preferences table")
+  → ["README.md#data-layer", "CHANGELOG.md", ".scribe/card.md"]
+
+# then for each:
+mcp__scribe__scribe_update(repo=X, path="README.md",
+  change_summary="data layer: 2 → 3 tables",
+  new_content=<synthesized by the caller or by claude -p>,
+  author_tool="agent-7")
 ```
 
-Scribe itself does zero synthesis — but because the call happens
-*during* the session that caused the drift, the agent has full
-context to write a fresh card. No stale, no drift, no lag.
+Synthesis happens in a session with real context — either the
+calling agent's own session or a scribe-spawned `claude -p`. Scribe
+itself never imports the Anthropic SDK.
 
 ## Why scribe, why not omni
 
