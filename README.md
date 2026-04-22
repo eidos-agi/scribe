@@ -1,5 +1,8 @@
 # scribe
 
+[![CI](https://github.com/eidos-agi/scribe/actions/workflows/ci.yml/badge.svg)](https://github.com/eidos-agi/scribe/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 The per-repo documentarian. Scribe is the teammate every other tool
 calls when it has just changed a repo — *"you just modified me, update
 my self-description so the outside world still knows what I am."*
